@@ -1,11 +1,11 @@
-
+import Camera from './Camera.js';
 import Entity from './Entity.js';
 import Timer from './Timer.js';
 import {loadLevel} from './loaders.js';
 import {createMario} from './entities.js';
-import {createCollisionLayer} from './layers.js'
-
-import Keyboard from './KeyboardState.js';
+import {setupKeyboard} from './input.js'
+import {createCollisionLayer, createCameraLayer} from './layers.js';
+import {setupMouseControl} from './debug.js';
 
 const canvas = document.getElementById('screen');
 const context = canvas.getContext('2d');
@@ -16,41 +16,24 @@ Promise.all([
   loadLevel('1-1'),
 ]).then(([mario, level]) => {
 
+  const camera = new Camera();
 
-  const gravity = 2000;
   mario.pos.set(64, 64);
 
   level.entities.add(mario);
-  level.comp.layers.push(createCollisionLayer(level));
+  level.comp.layers.push(createCollisionLayer(level), createCameraLayer(camera));
 
-  const SPACE = 32;
-  const input = new Keyboard();
-  input.addMapping(SPACE, keyState => {
-    if (keyState) {
-      console.log(mario);
-      mario.jump.start();
-    } else {
-      mario.jump.cancel();
-    }
-    console.log(keyState);
-  });
+  const input = setupKeyboard(mario);
   input.listenTo(window);
 
-  ['mousedown', 'mousemove'].forEach(eventName => {
-    canvas.addEventListener(eventName, event => {
-      if (event.buttons === 1) {
-        mario.vel.set(0,0);
-        mario.pos.set(event.offsetX, event.offsetY);
-      }
-    });
-  });
+  setupMouseControl(canvas, mario, camera);
+
 
   const timer = new Timer(1/60);
 
   timer.update = function update(deltaTime) {
-    level.comp.draw(context);
+    level.comp.draw(context, camera);
     level.update(deltaTime);
-    mario.vel.y += gravity * deltaTime;
   }
 
   timer.start();

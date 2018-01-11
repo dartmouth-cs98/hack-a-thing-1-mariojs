@@ -1,6 +1,6 @@
 import Level from './Level.js';
+import SpriteSheet from './SpriteSheet.js';
 import {createBackgroundLayer, createSpriteLayer} from './layers.js';
-import {loadBackgroundSprites} from './sprites.js';
 
 
 export function loadImage(url) {
@@ -13,13 +13,22 @@ export function loadImage(url) {
   });
 }
 
+function loadJSON(url) {
+  return fetch(url)
+  .then(r => r.json());
+}
+
+
 function createTiles(level, backgrounds) {
   backgrounds.forEach(background => {
-    background.ranges.forEach(([x1, x2, y1, y2]) => {
-      for (let x = x1; x < x2; ++x) {
-        for (let y = y1; y < y2; ++y) {
+    background.ranges.forEach(([xStart, xLen, yStart, yLen]) => {
+      const xEnd = xStart + xLen;
+      const yEnd = yStart + yLen;
+      for (let x = xStart; x < xEnd; ++x) {
+        for (let y = yStart; y < yEnd; ++y) {
           level.tiles.set(x,y, {
-            name: background.tile
+            name: background.tile,
+            type: background.type
           });
         }
       }
@@ -27,13 +36,27 @@ function createTiles(level, backgrounds) {
   });
 }
 
+function loadSpriteSheet(name) {
+  return loadJSON(`/sprites/${name}.json`).then(sheetSpec => Promise.all([
+    sheetSpec,
+    loadImage(sheetSpec.imageURL),
+  ])).then(([sheetSpec, image]) => {
+    const sprites = new SpriteSheet(image, sheetSpec.tileW, sheetSpec.tileH);
+
+    sheetSpec.tiles.forEach(tileSpec => {
+      sprites.defineTile(tileSpec.name, tileSpec.index[0], tileSpec.index[1]);
+    });
+
+    return sprites;
+  });
+}
+
 export function loadLevel(name) {
 
-  return Promise.all([
-    fetch(`/levels/${name}.json`)
-    .then(r => r.json()),
-    loadBackgroundSprites(),
-  ])
+  return loadJSON(`/levels/${name}.json`).then(levelSpec => Promise.all([
+    levelSpec,
+    loadSpriteSheet(levelSpec.spriteSheet),
+  ]))
   .then(([levelSpec, backgroundSprites]) => {
 
     const level = new Level();
